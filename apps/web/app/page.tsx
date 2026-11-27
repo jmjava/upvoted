@@ -13,8 +13,8 @@ export default async function Home() {
       <header>
         <h1>{config.show.name}</h1>
         <p className="tagline">
-          The day's three biggest Hacker News stories, every morning. AI-generated, and not
-          affiliated with Hacker News or Y Combinator.
+          Three pieces of small-language-model research, on mornings when something new has landed.
+          AI-generated.
         </p>
       </header>
       {latest ? (
@@ -38,6 +38,25 @@ export default async function Home() {
  * One episode. An earlier one is lighter: a smaller title, its stories folded away, and a player
  * that fetches nothing until it's played, since Blob transfer is the limit we're closest to.
  */
+function StoryLinks({ story }: { story: EpisodeRecord['stories'][number] }) {
+  const links = [
+    story.url ? { href: story.url, label: 'Paper' } : null,
+    story.pdfUrl ? { href: story.pdfUrl, label: 'PDF' } : null,
+    story.scholarUrl ? { href: story.scholarUrl, label: 'Google Scholar' } : null,
+  ].filter((link) => link != null);
+  if (links.length === 0) return null;
+  return (
+    <span className="links">
+      {links.map((link, index) => (
+        <span key={link.label}>
+          {index > 0 ? ' · ' : null}
+          <a href={link.href}>{link.label}</a>
+        </span>
+      ))}
+    </span>
+  );
+}
+
 function Episode({ episode, earlier = false }: { episode: EpisodeRecord; earlier?: boolean }) {
   const Title = earlier ? 'h3' : 'h2';
   const stories = (
@@ -45,15 +64,13 @@ function Episode({ episode, earlier = false }: { episode: EpisodeRecord; earlier
       {episode.stories.map((story) => (
         <li key={story.id}>
           <span className="title">{story.title}</span>
-          <span className="links">
-            {story.url ? (
-              <>
-                <a href={story.url}>Article{story.domain ? ` (${story.domain})` : ''}</a>
-                {' · '}
-              </>
-            ) : null}
-            <a href={story.hnUrl}>HN discussion</a>
+          <span className="meta">
+            {story.authors}
+            {story.year ? `, ${story.year}` : ''}
+            {' · '}
+            {story.status === 'new' ? 'New' : 'Standing'}
           </span>
+          <StoryLinks story={story} />
         </li>
       ))}
     </ol>

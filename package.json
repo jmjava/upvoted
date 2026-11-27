@@ -1,7 +1,7 @@
 {
   "name": "upvoted",
   "private": true,
-  "description": "A daily podcast of the three biggest Hacker News stories.",
+  "description": "A daily research briefing on small language models.",
   "type": "module",
   "packageManager": "pnpm@12.16.1",
   "engines": {

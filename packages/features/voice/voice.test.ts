@@ -44,7 +44,7 @@ describe('voiceSegment', () => {
     const text = Array.from({ length: 50 }, () => 'word').join(' ');
     const segment: Segment = {
       kind: 'story',
-      storyId: 1,
+      storyId: 'arxiv:2511.00001',
       lines: Array.from({ length: 40 }, (_, i) => ({ speaker: i % 2 ? 'Theo' : 'Maya', text })),
     };
 

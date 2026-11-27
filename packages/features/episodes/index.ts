@@ -3,6 +3,7 @@ export {
   type EpisodeRun,
   episodePrompt,
   handleRunRequest,
+  type RunGate,
   type RunResult,
   runScheduled,
   type StartSession,

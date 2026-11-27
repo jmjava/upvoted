@@ -1,7 +1,7 @@
 import './env';
 import { parseArgs } from 'node:util';
+import { lookupPapers } from '@upvoted/features/papers';
 import { publishSaved, voiceSavedSegment } from '@upvoted/features/produce';
-import { lookupStories } from '@upvoted/features/stories';
 import { mixEpisode } from '@upvoted/features/voice';
 import { config } from '@upvoted/lib/config';
 import { episodeDate } from '@upvoted/lib/dates';
@@ -76,7 +76,7 @@ async function main(): Promise<void> {
 
   await stage('publish', async () => {
     const storyIds = script.segments.flatMap((segment) => segment.storyId ?? []);
-    await publishSaved(date, await lookupStories(storyIds), audio);
+    await publishSaved(date, await lookupPapers(date, storyIds), audio);
     console.log(`  Published ${date} to ${keys.index}`);
   });
 }

@@ -11,7 +11,7 @@ import { CUES, spokenDate } from './prompt';
 
 /**
  * Checks and finishes the script the agent writes. The agent sends a draft (the running order
- * and every line) plus the ids of the stories it covers; code adds the story ids, the title and
+ * and every line) plus the ids of the papers it covers; code adds the paper ids, the title and
  * the show notes, so the model never writes a link.
  */
 
@@ -29,27 +29,31 @@ export const WORD_BUDGET = {
   totalMin: 1_900,
 } as const;
 
-/** The stories `get_top_stories` picked for an episode, biggest first. */
+/** The papers `get_papers` picked for an episode, new ones first. */
 export interface Selection {
   date: string;
-  ids: number[];
+  ids: string[];
+  /** True when nothing new landed, so the day has no episode. */
+  quiet: boolean;
 }
 
 /**
  * What's wrong with a draft, as sentences the agent can act on. Empty when it's ready to
- * publish. `selection` is what `get_top_stories` returned in this session, or null if it wasn't
- * called.
+ * publish. `selection` is what `get_papers` returned in this session, or null if it wasn't called.
  */
 export function checkScript(
   draft: unknown,
-  storyIds: number[],
+  storyIds: string[],
   selection: Selection | null,
 ): string[] {
-  if (!selection) return ['Call get_top_stories for the episode date before checking a script.'];
+  if (!selection) return ['Call get_papers for the episode date before checking a script.'];
+  if (selection.quiet || selection.ids.length === 0) {
+    return ['Nothing new turned up for this date. Do not publish an episode.'];
+  }
   const problems: string[] = [];
   if (storyIds.join() !== selection.ids.join()) {
     problems.push(
-      `storyIds must be exactly the stories get_top_stories returned, in its order: ` +
+      `storyIds must be exactly the papers get_papers returned, in its order: ` +
         `[${selection.ids.join(', ')}], not [${storyIds.join(', ')}].`,
     );
   }
@@ -85,7 +89,7 @@ export function checkScript(
   if (total < WORD_BUDGET.totalMin) {
     problems.push(
       `The script is ${total} words; an episode needs at least ${WORD_BUDGET.totalMin}, about ` +
-        `${config.show.targetMinutes} minutes. Add depth to the stories.`,
+        `${config.show.targetMinutes} minutes. Add depth to the papers.`,
     );
   }
   return [...new Set(problems)];
@@ -174,7 +178,7 @@ function countWords(lines: Line[]): number {
 /** The draft as a `Script`, story segment `i` covering `storyIds[i]`. */
 function toScript(
   draft: ScriptDraft,
-  storyIds: number[],
+  storyIds: string[],
   title: string,
   description: string,
 ): unknown {
@@ -203,12 +207,19 @@ function episodeTitle(date: string, stories: EpisodeStory[]): string {
 }
 
 function showNotes(date: string, stories: EpisodeStory[]): string {
+  const lead = `Small language model research for ${spokenDate(date)}.`;
   const items = stories.map((story, i) => {
-    const links = [
-      story.url ? `   Article: ${story.url}` : null,
-      `   Discussion: ${story.hnUrl}`,
-    ].filter(Boolean);
-    return `${i + 1}. ${story.title}\n${links.join('\n')}`;
+    const lines = [
+      `${i + 1}. ${story.title}`,
+      `   Authors: ${story.authors}`,
+      story.year ? `   Year: ${story.year}` : null,
+      story.venue ? `   Venue: ${story.venue}` : null,
+      `   Status: ${story.status}`,
+      story.url ? `   Paper: ${story.url}` : null,
+      story.pdfUrl ? `   PDF: ${story.pdfUrl}` : null,
+      story.scholarUrl ? `   Google Scholar: ${story.scholarUrl}` : null,
+    ].filter((line) => line != null);
+    return lines.join('\n');
   });
-  return `The three biggest Hacker News stories for ${spokenDate(date)}.\n\n${items.join('\n\n')}`;
+  return `${lead}\n\n${items.join('\n\n')}`;
 }

@@ -14,36 +14,66 @@ const castNames = [hostName, ...correspondentNames] as [string, ...string[]];
 export const EpisodeDateSchema = z.iso.date();
 /** An ISO 8601 timestamp in UTC, such as `2026-11-03T08:00:00.000Z`. */
 const TimestampSchema = z.iso.datetime();
-const HnIdSchema = z.int().positive();
 
 // ---------------------------------------------------------------------------------------------
-// Stories
+// Papers
 
-/** What selection returns: the story as it stood on HN when it was picked. */
-export const StoryRefSchema = z.object({
-  id: HnIdSchema,
+/** A stable id: `arxiv:2511.01234`, `doi:10.1000/xyz`, or another source's id. */
+export const PaperIdSchema = z.string().min(1);
+/** `new` landed inside the fresh window; `standing` fills out an episode that already has news. */
+export const PaperStatusSchema = z.enum(['new', 'standing']);
+export const PaperSourceSchema = z.enum(['scholar', 'openalex', 'semanticscholar', 'arxiv']);
+export type PaperStatus = z.infer<typeof PaperStatusSchema>;
+export type PaperSource = z.infer<typeof PaperSourceSchema>;
+
+/**
+ * A paper as selection saved it. Links come from the academic sources, never from the model.
+ * `published` is `YYYY-MM-DD` when a source gave a day, otherwise null.
+ */
+export const PaperRefSchema = z.object({
+  id: PaperIdSchema,
   title: z.string().min(1),
-  /** The linked article, or null for text posts such as most Ask HN posts. */
+  authors: z.array(z.string().min(1)),
+  year: z.int().nullable(),
+  published: z.iso.date().nullable(),
+  /** The paper itself: an arXiv abstract, a DOI, or a publisher page. */
   url: z.string().min(1).nullable(),
-  by: z.string(),
-  points: z.int().nonnegative(),
-  numComments: z.int().nonnegative(),
-  createdAt: TimestampSchema,
+  pdfUrl: z.string().min(1).nullable(),
+  scholarUrl: z.string().min(1).nullable(),
+  venue: z.string().min(1).nullable(),
+  abstract: z.string().nullable(),
+  citedBy: z.int().nonnegative().nullable(),
+  /** Scholar when Google Scholar returned it; otherwise the source that did. */
+  source: PaperSourceSchema,
+  sources: z.array(PaperSourceSchema).min(1),
+  status: PaperStatusSchema,
 });
-export type StoryRef = z.infer<typeof StoryRefSchema>;
+export type PaperRef = z.infer<typeof PaperRefSchema>;
 
-/** A story as the show notes list it, looked up from HN by id so links are never the model's. */
+/** A paper as the show notes and the site list it. */
 export const EpisodeStorySchema = z.object({
-  id: HnIdSchema,
+  id: PaperIdSchema,
   title: z.string().min(1),
-  /** The linked article, or null for text posts. */
+  authors: z.string().min(1),
+  year: z.int().nullable(),
   url: z.string().min(1).nullable(),
-  /** The article's host name without `www.`, or null when there is no url. */
-  domain: z.string().nullable(),
-  /** `https://news.ycombinator.com/item?id=<id>` */
-  hnUrl: z.url(),
+  pdfUrl: z.string().min(1).nullable(),
+  scholarUrl: z.string().min(1).nullable(),
+  venue: z.string().min(1).nullable(),
+  status: PaperStatusSchema,
 });
 export type EpisodeStory = z.infer<typeof EpisodeStorySchema>;
+
+/** The papers chosen for one episode, saved so later steps don't ask the model for links. */
+export const PaperSetSchema = z.object({
+  date: EpisodeDateSchema,
+  /** True when nothing new landed. A quiet set is not saved, and no episode is published. */
+  quiet: z.boolean(),
+  /** `unavailable` when Google Scholar blocked or failed every query. */
+  scholar: z.enum(['ok', 'unavailable']),
+  papers: z.array(PaperRefSchema).min(1),
+});
+export type PaperSet = z.infer<typeof PaperSetSchema>;
 
 // ---------------------------------------------------------------------------------------------
 // Script
@@ -65,8 +95,8 @@ export type SegmentKind = z.infer<typeof SegmentKindSchema>;
 export const SegmentSchema = z
   .object({
     kind: SegmentKindSchema,
-    /** The HN id of the story a `story` segment covers; null for `intro` and `signoff`. */
-    storyId: HnIdSchema.nullable(),
+    /** The paper id a `story` segment covers; null for `intro` and `signoff`. */
+    storyId: PaperIdSchema.nullable(),
     lines: z.array(LineSchema).min(1),
   })
   .superRefine((segment, ctx) => {
@@ -116,7 +146,7 @@ export const ScriptSchema = z
   .object({
     date: EpisodeDateSchema,
     title: z.string().min(1),
-    /** Show notes: each story's title, article link and HN discussion link. */
+    /** Show notes: each paper's title, authors and links. */
     description: z.string().min(1),
     /** The intro, three story segments (correspondent `i` in story `i`) and the sign-off. */
     segments: z.array(SegmentSchema).min(1),
@@ -182,7 +212,7 @@ export const EpisodeRecordSchema = z.object({
   title: z.string().min(1),
   description: z.string().min(1),
   audio: EpisodeAudioSchema,
-  /** The stories the episode covers, in running order. */
+  /** The papers the episode covers, in running order. */
   stories: z.array(EpisodeStorySchema),
   publishedAt: TimestampSchema,
 });

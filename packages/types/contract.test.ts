@@ -9,7 +9,7 @@ const [theo, nadia, felix] = config.cast.correspondents.map((member) => member.n
   string,
 ];
 
-const storySegment = (storyId: number, correspondent: string) => ({
+const storySegment = (storyId: string, correspondent: string) => ({
   kind: 'story' as const,
   storyId,
   lines: [
@@ -24,9 +24,9 @@ const script: Script = {
   description: 'Show notes.',
   segments: [
     { kind: 'intro', storyId: null, lines: [{ speaker: maya, text: 'This is Upvoted.' }] },
-    storySegment(1, theo),
-    storySegment(2, nadia),
-    storySegment(3, felix),
+    storySegment('arxiv:1', theo),
+    storySegment('arxiv:2', nadia),
+    storySegment('arxiv:3', felix),
     { kind: 'signoff', storyId: null, lines: [{ speaker: maya, text: 'See you tomorrow.' }] },
   ],
 };
@@ -65,10 +65,10 @@ describe('Script', () => {
   });
 
   it('needs the host and exactly one correspondent in a story', () => {
-    const hostOnly = { kind: 'story', storyId: 1, lines: [{ speaker: maya, text: 'Hi.' }] };
+    const hostOnly = { kind: 'story', storyId: 'arxiv:1', lines: [{ speaker: maya, text: 'Hi.' }] };
     const twoCorrespondents = {
-      ...storySegment(1, theo),
-      lines: [...storySegment(1, theo).lines, { speaker: nadia, text: 'And me.' }],
+      ...storySegment('arxiv:1', theo),
+      lines: [...storySegment('arxiv:1', theo).lines, { speaker: nadia, text: 'And me.' }],
     };
     for (const segment of [hostOnly, twoCorrespondents]) {
       const result = ScriptSchema.safeParse(withSegment(1, segment));
@@ -77,7 +77,7 @@ describe('Script', () => {
   });
 
   it("gives each story its own correspondent, in the cast's order", () => {
-    const result = ScriptSchema.safeParse(withSegment(2, storySegment(2, felix)));
+    const result = ScriptSchema.safeParse(withSegment(2, storySegment('arxiv:2', felix)));
     expect(result.success).toBe(false);
   });
 
@@ -89,7 +89,7 @@ describe('Script', () => {
 
   it('needs a storyId on a story segment', () => {
     const result = ScriptSchema.safeParse(
-      withSegment(1, { ...storySegment(1, theo), storyId: null }),
+      withSegment(1, { ...storySegment('arxiv:1', theo), storyId: null }),
     );
     expect(result.success).toBe(false);
   });
@@ -99,7 +99,7 @@ describe('Script', () => {
     [4, 'signoff'],
   ] as const)('rejects a storyId on the %s', (i, kind) => {
     const result = ScriptSchema.safeParse(
-      withSegment(i, { kind, storyId: 1, lines: [{ speaker: maya, text: 'Hi.' }] }),
+      withSegment(i, { kind, storyId: 'arxiv:1', lines: [{ speaker: maya, text: 'Hi.' }] }),
     );
     expect(result.success).toBe(false);
     expect(result.error?.issues[0]?.path).toEqual(['segments', i, 'storyId']);
@@ -124,12 +124,16 @@ describe('EpisodeIndex', () => {
       bytes: 8_600_000,
       durationSec: 720.5,
     },
-    stories: [1, 2, 3].map((id) => ({
+    stories: ['arxiv:1', 'arxiv:2', 'arxiv:3'].map((id) => ({
       id,
-      title: `Story ${id}`,
-      url: id === 3 ? null : `https://example.com/${id}`,
-      domain: id === 3 ? null : 'example.com',
-      hnUrl: `https://news.ycombinator.com/item?id=${id}`,
+      title: `Paper ${id}`,
+      authors: 'Ada Lovelace',
+      year: 2026,
+      url: `https://arxiv.org/abs/${id.slice(6)}`,
+      pdfUrl: null,
+      scholarUrl: `https://scholar.google.com/scholar?cluster=${id}`,
+      venue: 'arXiv',
+      status: 'new' as const,
     })),
     publishedAt: `${date}T08:20:00.000Z`,
   });
