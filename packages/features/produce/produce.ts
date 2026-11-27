@@ -8,8 +8,8 @@ import {
   ScriptSchema,
 } from '@upvoted/types';
 import { episodeRecord, publishEpisode } from '../episodes';
+import { lookupPapers } from '../papers';
 import { buildScript, renderTranscript } from '../script';
-import { lookupStories } from '../stories';
 import { voiceSegment } from '../voice';
 
 /**
@@ -19,14 +19,15 @@ import { voiceSegment } from '../voice';
  */
 
 /**
- * Looks up the stories on HN by id, finishes the draft with their links and show notes, and
- * saves `script.json` and `transcript.md`. Call it only with a draft `checkScript` passed.
+ * Looks the papers up from the selection `get_papers` saved, finishes the draft with their
+ * links and show notes, and saves `script.json` and `transcript.md`. Call it only with a draft
+ * `checkScript` passed.
  */
 export async function saveScript(
   draft: ScriptDraft,
-  storyIds: number[],
+  storyIds: string[],
 ): Promise<{ date: string; segmentCount: number; stories: EpisodeStory[] }> {
-  const stories = await lookupStories(storyIds);
+  const stories = await lookupPapers(draft.date, storyIds);
   const script = buildScript(draft, stories);
   await putJson(keys.script(script.date), script);
   await putFile(

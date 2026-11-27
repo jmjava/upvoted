@@ -4,7 +4,7 @@ import { EpisodeIndexSchema, type EpisodeRecord } from '@upvoted/types';
 import { describe, expect, it } from 'vitest';
 import { findEpisode, loadExcludeIds, loadIndex, publishEpisode } from './publish';
 
-function record(date: string, ids = [1, 2, 3]): EpisodeRecord {
+function record(date: string, ids = ['arxiv:1', 'arxiv:2', 'arxiv:3']): EpisodeRecord {
   return {
     date,
     title: `Episode for ${date}`,
@@ -17,10 +17,14 @@ function record(date: string, ids = [1, 2, 3]): EpisodeRecord {
     },
     stories: ids.map((id) => ({
       id,
-      title: `Story ${id}`,
+      title: `Paper ${id}`,
+      authors: 'Ada Lovelace',
+      year: 2026,
       url: `https://example.com/${id}`,
-      domain: 'example.com',
-      hnUrl: `https://news.ycombinator.com/item?id=${id}`,
+      pdfUrl: null,
+      scholarUrl: null,
+      venue: null,
+      status: 'new' as const,
     })),
     publishedAt: `${date}T08:30:00.000Z`,
   };
@@ -63,7 +67,7 @@ describe('publishEpisode', () => {
   it('replaces an episode with the same date', async () => {
     await publishEpisode(record('2026-11-02'));
     await publishEpisode(record('2026-11-03'));
-    const redo = { ...record('2026-11-03', [7, 8, 9]), title: 'Redone' };
+    const redo = { ...record('2026-11-03', ['arxiv:7', 'arxiv:8', 'arxiv:9']), title: 'Redone' };
     await publishEpisode(redo);
     const { episodes } = await loadIndex();
     expect(episodes).toEqual([redo, record('2026-11-02')]);
@@ -109,19 +113,30 @@ describe('loadExcludeIds', () => {
 
   it(`covers the ${config.retention.excludeDays} days before the episode date, not that date itself`, async () => {
     expect(config.retention.excludeDays).toBe(7);
-    await publishEpisode(record('2026-11-03', [30, 31, 32])); // today: a re-run picks these again
-    await publishEpisode(record('2026-11-02', [20, 21, 22]));
-    await publishEpisode(record('2026-10-27', [10, 11, 12])); // 7 days before: excluded
-    await publishEpisode(record('2026-10-26', [1, 2, 3])); // 8 days before: free again
+    await publishEpisode(record('2026-11-03', ['arxiv:30', 'arxiv:31', 'arxiv:32'])); // today: a re-run picks these again
+    await publishEpisode(record('2026-11-02', ['arxiv:20', 'arxiv:21', 'arxiv:22']));
+    await publishEpisode(record('2026-10-27', ['arxiv:10', 'arxiv:11', 'arxiv:12'])); // 7 days before: excluded
+    await publishEpisode(record('2026-10-26', ['arxiv:1', 'arxiv:2', 'arxiv:3'])); // 8 days before: free again
 
     const ids = await loadExcludeIds(new Date('2026-11-03T08:00:00Z'));
-    expect(ids.sort((a, b) => a - b)).toEqual([10, 11, 12, 20, 21, 22]);
+    expect([...ids].sort()).toEqual([
+      'arxiv:10',
+      'arxiv:11',
+      'arxiv:12',
+      'arxiv:20',
+      'arxiv:21',
+      'arxiv:22',
+    ]);
   });
 
   it("uses the episode date in the show's time zone", async () => {
-    await publishEpisode(record('2026-11-02', [20, 21, 22]));
+    await publishEpisode(record('2026-11-02', ['arxiv:20', 'arxiv:21', 'arxiv:22']));
     // 03:00 UTC on Nov 3 is still Nov 2 in New York, so Nov 2's own episode doesn't count.
     expect(await loadExcludeIds(new Date('2026-11-03T03:00:00Z'))).toEqual([]);
-    expect(await loadExcludeIds(new Date('2026-11-03T08:00:00Z'))).toEqual([20, 21, 22]);
+    expect(await loadExcludeIds(new Date('2026-11-03T08:00:00Z'))).toEqual([
+      'arxiv:20',
+      'arxiv:21',
+      'arxiv:22',
+    ]);
   });
 });

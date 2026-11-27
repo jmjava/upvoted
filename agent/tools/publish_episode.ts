@@ -8,9 +8,10 @@ import { type ScriptInput, ScriptInputSchema } from '../lib/script-input';
 import { selection } from '../lib/selection';
 
 /**
- * Publishes the episode as a durable workflow: save the script (links and show notes looked up
- * from HN), voice every segment in parallel, mix, publish. Each step is its own function call,
- * well inside Vercel Hobby's 300-second limit, and is retried on failure; nothing is published
+ * Publishes the episode as a durable workflow: save the script (links and show notes from the
+ * papers get_papers saved), voice every segment in parallel, mix, publish. Each step is its own
+ * function call, well inside Vercel Hobby's 300-second limit, and is retried on failure; nothing
+ * is published
  * unless every step before it succeeded.
  */
 export default defineWorkflowTool({
@@ -39,7 +40,7 @@ export default defineWorkflowTool({
   },
 });
 
-async function saveScriptStep(script: ScriptDraft, storyIds: number[]) {
+async function saveScriptStep(script: ScriptDraft, storyIds: string[]) {
   'use step';
   return saveScript(script, storyIds);
 }

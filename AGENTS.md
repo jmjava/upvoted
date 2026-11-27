@@ -1,11 +1,12 @@
 # Upvoted
 
-A daily podcast of the three biggest Hacker News stories, made by an [eve](https://vercel.com/docs/eve)
+A daily research briefing on small language models, made by an [eve](https://vercel.com/docs/eve)
 agent. Every morning its schedule starts a session, and the agent:
 
-1. **picks** the day's top stories (`get_top_stories`),
-2. **reads** each article and its comment thread (`get_article`, `get_comments`, `get_replies`),
-   and searches the web when it helps (`web_search`, `web_fetch`),
+1. **picks** three papers (`get_papers`): Google Scholar first, with OpenAlex, Semantic Scholar
+   and arXiv filling in dates, abstracts and anything Scholar missed,
+2. **reads** each paper (`get_paper`), and searches the web when the paper itself isn't enough
+   (`web_search`, `web_fetch`),
 3. **writes** a script in the style of NPR's _Up First_: one host, a correspondent per story,
    and checks it (`check_script`),
 4. **publishes** it (`publish_episode`): voices it with Gemini TTS, mixes the episode MP3 and adds
@@ -36,7 +37,7 @@ packages/
   types/              @upvoted/types: the zod data contract (contract.ts)
   lib/                @upvoted/lib: config.ts, storage.ts and small shared helpers
   features/           @upvoted/features: one folder per feature, exported as a subpath
-    stories/          selection and the read tools   (@upvoted/features/stories)
+    papers/           selection and the read tools   (@upvoted/features/papers)
     script/           checking and finishing scripts (@upvoted/features/script)
     voice/            Gemini voices and the mix      (@upvoted/features/voice)
     episodes/         the index and run triggers     (@upvoted/features/episodes)
@@ -48,13 +49,15 @@ scripts/
 ```
 
 - **`@upvoted/types`** (`packages/types/contract.ts`) holds every schema the steps pass around:
-  `StoryRef`, `EpisodeStory`, `Line`, `Segment`, `Script`, `ScriptDraft`, `EpisodeAudio`,
+  `PaperRef`, `PaperSet`, `EpisodeStory`, `Line`, `Segment`, `Script`, `ScriptDraft`, `EpisodeAudio`,
   `EpisodeRecord` and `EpisodeIndex`. Each is a zod schema (`ScriptSchema`) with its inferred type
   (`Script`). All of them are plain JSON (dates are ISO strings), so they round-trip through
   `JSON.stringify` unchanged.
-  A `Script` runs intro, three stories, sign-off: only the host speaks in the intro and the
+  A `Script` runs intro, three papers, sign-off: only the host speaks in the intro and the
   sign-off, and story `i` is the host and correspondent `i`. A `ScriptDraft` is what the agent
-  writes: the segments' kinds and lines, without story ids, title or show notes.
+  writes: the segments' kinds and lines, without paper ids, title or show notes. A paper is `new`
+  when it landed inside `FRESH_DAYS` (45) of the selection time, and `standing` otherwise. A quiet
+  day has no new paper: nothing is published.
 - **`@upvoted/lib/config`** is the show's config (name, time zone, cast, TTS model, retention),
   validated with zod at import. The `cast` is one `host` and three `correspondents`;
   correspondent `i` covers story `i` (`correspondentFor(i)`). Change the cast, voices or the
@@ -70,16 +73,22 @@ scripts/
   `publishEpisode(record)`, which inserts newest first, replaces a record with the same date,
   keeps `retention.episodes` (7) and deletes the dropped episodes' files. `handleRunRequest` and
   `runScheduled` start agent sessions through `startEpisode`, which skips a published date unless
-  `force` is set.
-- **`@upvoted/features/stories`**: `selectStories`, `selectionTime`, and the read tools'
-  functions `getArticle`, `getComments`, `getReplies` and `lookupStories`. Usernames never leave
-  it.
+  `force` is set, and skips a date whose gate reports nothing new.
+- **`@upvoted/features/papers`**: `selectPapers`, `selectionTime`, and the read tools' functions
+  `getPaper` and `lookupPapers`. Google Scholar is the main index (`scholar.ts`). OpenAlex,
+  Semantic Scholar and arXiv augment it: they supply the day a paper appeared, the abstract, and
+  papers Scholar didn't return. When Scholar blocks the request, the episode still runs from the
+  other indexes and `scholar` is `unavailable`. A day with nothing inside the fresh window returns
+  no papers and `quiet` is true, and the schedule and the manual trigger start no session. When
+  there is news but fewer than three new papers, standing work fills the rest. Papers covered in
+  the past `retention.excludeDays` are skipped. `get_papers` saves a publishable pick at
+  `episodes/<date>/papers.json`.
 - **`@upvoted/features/script`**: `checkScript(draft, storyIds, selection)` returns the problems
-  with a draft (empty when it's ready): the contract and cast rules, the stories picked, no URLs,
+  with a draft (empty when it's ready): the contract and cast rules, the papers picked, no URLs,
   markdown or digits in the text, no line over 80 words (long turns are where the voice rushes), and the word budgets in `WORD_BUDGET` (intro 70–110, each story
   550–700, sign-off 40–70, at least 1,900 in all, since Gemini reads at up to 180 words a
-  minute). `buildScript` adds the story ids, title and
-  show notes from HN. `agent/instructions.md` states the same budgets; change both together.
+  minute). `buildScript` adds the paper ids, title and
+  show notes from the saved papers. `agent/instructions.md` states the same budgets; change both together.
 
 ### Package rules
 
@@ -168,13 +177,13 @@ IPC socket, which sandboxes often refuse.
   A step takes and returns small JSON (storage keys, ids, contract types), never audio bytes, and
   must finish well inside Vercel Hobby's 300-second function limit.
 - **The show's behavior lives in `agent/instructions.md`.** Code enforces what must hold
-  (`checkScript`, links from HN), the instructions say how to write. Don't test the wording.
+  (`checkScript`, links from the saved papers), the instructions say how to write. Don't test the wording.
 - **Steps read and write files only through `@upvoted/lib/storage`.**
 - **Tests never touch the network.** They sit next to the code as `*.test.ts`. Shared fixtures
   live in `packages/testing/fixtures/` and are read with `@upvoted/testing/fixtures`. The shared
   setup (`@upvoted/testing/setup`) makes any unstubbed `fetch` fail. It also points storage at a
   fresh temp folder per test and clears the Blob token. Stub requests with `stubFetch`
-  (`@upvoted/testing/fetch`), or the HN APIs with `stubHnApi` (`@upvoted/testing/hn`). A package
+  (`@upvoted/testing/fetch`). A package
   with tests has a `vitest.config.ts` that calls `testProject(name)` from
   `@upvoted/testing/vitest`.
 - **Local output goes to `out/`** at the repo root (gitignored), or to `UPVOTED_OUT_DIR` if set.
@@ -193,9 +202,10 @@ fail, and a correct refactor wouldn't.
   count of calls to internal functions or mocks, unless that order is the behavior (the mix
   getting segments in script order, a retry calling again); mirror the implementation line by
   line; or duplicate another test.
-- **Do test behavior that can break**: story selection, ranking and exclusions; HTML stripping,
-  article failures, comment paging and that no username reaches the agent; the contract's speaker
-  and segment rules and `checkScript`; show notes built from HN; the storage backends and the
+- **Do test behavior that can break**: paper selection, ranking, the fresh window and exclusions;
+  a quiet day publishing nothing; Google Scholar being blocked; HTML stripping and
+  unreadable paper pages; the contract's speaker and segment rules and `checkScript`; show notes
+  built from the saved papers; the storage backends and the
   `preview/` prefix; splitting segments under the TTS limits; a real ffmpeg mix (duration,
   format, loudness); publish retention, exclusion and idempotency; the trigger's auth; and the
   `force` re-run.
@@ -208,22 +218,24 @@ fail, and a correct refactor wouldn't.
 
 `agent/schedules/daily-episode.ts` runs at `0 9 * * *` (09:00 UTC; Hobby fires it some time in
 that hour). It starts a session for today's date in the show's time zone, unless `index.json`
-already has that date's episode: then it starts nothing and spends nothing. Stories come from the
-24 hours before 09:00 UTC on the episode date, or before now if that's still ahead
-(`selectionTime`).
+already has that date's episode, or nothing new has landed: then it starts nothing and spends
+nothing. Papers are chosen at
+09:00 UTC on the episode date, or at now if that's still ahead (`selectionTime`). A paper dated
+after that moment waits for a later episode.
 
 The manual trigger is `POST /api/episode` (`agent/channels/episode.ts`, routed to the agent in
 `vercel.ts`). It requires `Authorization: Bearer $CRON_SECRET` (401 otherwise), takes an optional
 `?date=YYYY-MM-DD` (default: today in the show's time zone) and `?force=1`, and answers
-`{ date, force, status, sessionId }`, where `status` is `started` or `already published`. With
-`force` it makes the episode again from freshly selected stories and replaces the published one.
+`{ date, force, status, sessionId }`, where `status` is `started`, `already published`, or
+`nothing new`. With `force` it makes the episode again from freshly selected papers and replaces
+the published one, still only when something new turned up.
 Each run is a session of its own; follow it in **Observability → Agent Runs**.
 
-In a session the agent calls `get_top_stories`, which saves the three ids in eve session state
-(`agent/lib/selection.ts`), reads the stories, writes the script and calls `check_script` until it
-passes. `publish_episode` checks the script again before it starts (its approval policy denies a
-bad one) and then runs as a durable eve workflow tool: `saveScript` (links and show notes looked
-up from HN, `script.json` and `transcript.md`), one `voiceSavedSegment` step per segment in
+In a session the agent calls `get_papers`, which saves the three papers in eve session state
+(`agent/lib/selection.ts`) and at `episodes/<date>/papers.json`, reads them, writes the script and
+calls `check_script` until it passes. `publish_episode` checks the script again before it starts
+(its approval policy denies a bad one) and then runs as a durable eve workflow tool: `saveScript`
+(links and show notes from the saved papers, `script.json` and `transcript.md`), one `voiceSavedSegment` step per segment in
 parallel, `mixEpisode`, and `publishSaved`. Steps keep the Workflow SDK's default retries; a step
 that keeps failing fails the call before anything is published.
 
@@ -242,8 +254,8 @@ The site (`app/page.tsx`) renders on each request from `index.json`, so a publis
 at once. It plays the latest episode, and below it lists the earlier ones still in the index
 (`retention.episodes`), newest first, each with its own player and show notes. Earlier players use
 `preload="none"`, so a page view fetches no metadata for their MP3s: Blob transfer is the limit
-we're closest to. Each `EpisodeRecord` carries its `stories` (title, url, domain, HN link) for the
-show notes.
+we're closest to. Each `EpisodeRecord` carries its `stories` (title, authors, paper link, PDF
+and Google Scholar link, and whether the paper is new or standing) for the show notes.
 
 ## Deploying
 
@@ -294,6 +306,7 @@ eve ships the package whole, binary included, instead of bundling it. Check a bu
 
 ```
 index.json
+episodes/<date>/papers.json
 episodes/<date>/script.json
 episodes/<date>/transcript.md
 episodes/<date>/segments/<n>.wav     n = the segment's 0-based index in the script

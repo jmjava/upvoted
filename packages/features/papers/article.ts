@@ -3,7 +3,7 @@ import { BROWSER_USER_AGENT, fetchWithRetry } from '@upvoted/lib/http';
 import { parseHTML } from 'linkedom';
 import { countWords, nodeToText, truncateWords } from './text';
 
-/** Fetches a story's linked page and extracts its readable text with Mozilla Readability. */
+/** Fetches a paper's HTML page and extracts its readable text with Mozilla Readability. */
 
 export const ARTICLE_TIMEOUT_MS = 15_000;
 export const ARTICLE_MAX_WORDS = 8_000;

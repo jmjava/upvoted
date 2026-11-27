@@ -19,13 +19,22 @@ export type StartSession = (run: EpisodeRun) => Promise<string>;
 
 export type RunResult =
   | (EpisodeRun & { status: 'started'; sessionId: string })
-  | (EpisodeRun & { status: 'already published' });
+  | (EpisodeRun & { status: 'already published' })
+  | (EpisodeRun & { status: 'nothing new' });
+
+/** Whether this run has papers worth an episode. Omitted, the run always starts. */
+export type RunGate = (run: EpisodeRun) => Promise<'go' | 'nothing new'>;
 
 /** Starts a session for `run`, unless its date is published and `force` is off. */
-export async function startEpisode(run: EpisodeRun, start: StartSession): Promise<RunResult> {
+export async function startEpisode(
+  run: EpisodeRun,
+  start: StartSession,
+  gate?: RunGate,
+): Promise<RunResult> {
   if (!run.force && (await findEpisode(run.date)) !== null) {
     return { ...run, status: 'already published' };
   }
+  if ((await gate?.(run)) === 'nothing new') return { ...run, status: 'nothing new' };
   return { ...run, status: 'started', sessionId: await start(run) };
 }
 
@@ -37,6 +46,7 @@ export async function handleRunRequest(
   request: Request,
   start: StartSession,
   now = new Date(),
+  gate?: RunGate,
 ): Promise<Response> {
   const secret = process.env.CRON_SECRET;
   if (!secret) return Response.json({ error: 'CRON_SECRET is not set' }, { status: 503 });
@@ -54,19 +64,23 @@ export async function handleRunRequest(
     return Response.json({ error: 'force must be 0 or 1' }, { status: 400 });
   }
 
-  const result = await startEpisode({ date, force: forceParam === '1' }, start);
+  const result = await startEpisode({ date, force: forceParam === '1' }, start, gate);
   return Response.json(result, { status: result.status === 'started' ? 202 : 200 });
 }
 
 /** The daily schedule: today's episode (in the show's time zone), unless it's published. */
-export function runScheduled(start: StartSession, now = new Date()): Promise<RunResult> {
-  return startEpisode({ date: episodeDate(now), force: false }, start);
+export function runScheduled(
+  start: StartSession,
+  now = new Date(),
+  gate?: RunGate,
+): Promise<RunResult> {
+  return startEpisode({ date: episodeDate(now), force: false }, start, gate);
 }
 
 /** The message that starts the agent on an episode. */
 export function episodePrompt({ date, force }: EpisodeRun): string {
   return (
-    `Produce the Upvoted episode for ${date}.` +
+    `Produce the Upvoted episode for ${date}, a briefing on small language model research.` +
     (force ? ' It was published before; this run makes it again and replaces it.' : '')
   );
 }

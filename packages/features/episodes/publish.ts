@@ -23,10 +23,10 @@ export async function findEpisode(date: string): Promise<EpisodeRecord | null> {
 }
 
 /**
- * The ids of stories covered by episodes dated in the `config.retention.excludeDays` days before
- * `now`'s episode date. That date's own episode doesn't count, so a re-run picks the same stories.
+ * The ids of papers covered by episodes dated in the `config.retention.excludeDays` days before
+ * `now`'s episode date. That date's own episode doesn't count, so a re-run can pick them again.
  */
-export async function loadExcludeIds(now: Date): Promise<number[]> {
+export async function loadExcludeIds(now: Date): Promise<string[]> {
   const date = episodeDate(now);
   const since = addDays(date, -config.retention.excludeDays);
   const { episodes } = await loadIndex();

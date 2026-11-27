@@ -29,6 +29,8 @@ export interface StoredFile {
 export const keys = {
   index: 'index.json',
   episodeDir: (date: string) => `episodes/${date}/`,
+  /** The papers `get_papers` picked, so later steps can rebuild show notes without the model. */
+  papers: (date: string) => `episodes/${date}/papers.json`,
   script: (date: string) => `episodes/${date}/script.json`,
   transcript: (date: string) => `episodes/${date}/transcript.md`,
   segment: (date: string, index: number) => `episodes/${date}/segments/${index}.wav`,

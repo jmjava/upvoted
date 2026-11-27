@@ -55,7 +55,7 @@ const ConfigSchema = z.object({
   retention: z.object({
     /** How many episodes the index (and Blob) keeps. */
     episodes: z.int().positive(),
-    /** Stories covered in the past this many days are not picked again. */
+    /** Papers covered in the past this many days are not picked again. */
     excludeDays: z.int().nonnegative(),
   }),
 });
@@ -77,10 +77,11 @@ export const config: Config = ConfigSchema.parse({
     name: 'Upvoted',
     author: 'Charles Pan',
     description:
-      'The three biggest Hacker News stories of the day in about twelve minutes, from an anchor ' +
-      'and a correspondent for each story. Upvoted is AI-generated: the stories are picked automatically, the script ' +
-      'is written by Claude, and the voices are synthetic. It is not affiliated with Hacker News ' +
-      'or Y Combinator.',
+      'Three pieces of small-language-model research, in about twelve minutes, from an anchor and ' +
+      'a correspondent for each paper. Google Scholar is the main source; OpenAlex, Semantic ' +
+      'Scholar and arXiv fill in what it misses. When nothing new has landed, that morning has no ' +
+      'episode. The papers are picked automatically, the script ' +
+      'is written by Claude, and the voices are synthetic.',
     timezone: 'America/New_York',
     targetMinutes: 12,
     siteUrl: siteUrl(),
@@ -89,7 +90,7 @@ export const config: Config = ConfigSchema.parse({
     // Moving up to 'google/gemini-3.8-flash-tts' is a one-line change.
     model: 'google/gemini-3.8-flash-lite-tts',
     style:
-      'A public-radio morning news show: a measured, warm, clear anchor and well-informed ' +
+      'A public-radio research briefing: a measured, warm, clear anchor and well-informed ' +
       'correspondents. Conversational but composed, with crisp diction, an unhurried pace of ' +
       'about 150 words a minute, even in long answers, and no filler. Never rushed, never ' +
       'hyped, never announcer-like.',

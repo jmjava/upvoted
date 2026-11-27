@@ -12,7 +12,7 @@ import { buildScript, checkScript, renderTranscript, type Selection } from './sc
 
 const sample = ScriptSchema.parse(readJsonFixture('script-sample.json')) as Script;
 const ids = sample.segments.flatMap((segment) => (segment.storyId ? [segment.storyId] : []));
-const selection: Selection = { date: sample.date, ids };
+const selection: Selection = { date: sample.date, ids, quiet: false };
 const maya = config.cast.host.name;
 const [theo, nadia, felix] = config.cast.correspondents.map((member) => member.name) as [
   string,
@@ -67,10 +67,14 @@ function withSegment(i: number, change: (segment: ScriptDraft['segments'][number
 
 const stories: EpisodeStory[] = ids.map((id, i) => ({
   id,
-  title: `Story ${i + 1}`,
-  url: i === 2 ? null : `https://example.com/${id}`,
-  domain: i === 2 ? null : 'example.com',
-  hnUrl: `https://news.ycombinator.com/item?id=${id}`,
+  title: `Paper ${i + 1}`,
+  authors: 'Ada Lovelace',
+  year: 2026,
+  url: i === 2 ? null : `https://arxiv.org/abs/${id.slice('arxiv:'.length)}`,
+  pdfUrl: null,
+  scholarUrl: `https://scholar.google.com/scholar?cluster=${i + 1}`,
+  venue: 'arXiv',
+  status: i === 0 ? 'new' : 'standing',
 }));
 
 describe('checkScript', () => {
@@ -78,13 +82,13 @@ describe('checkScript', () => {
     expect(checkScript(draft(), ids, selection)).toEqual([]);
   });
 
-  it('refuses before get_top_stories has picked the stories', () => {
+  it('refuses before get_papers has picked the papers', () => {
     expect(checkScript(draft(), ids, null)).toHaveLength(1);
   });
 
   it.each([
-    ['another story', [ids[0], ids[1], 999] as number[]],
-    ['the right stories in another order', [ids[1], ids[0], ids[2]] as number[]],
+    ['another paper', [ids[0], ids[1], 'doi:10.1000/other'] as string[]],
+    ['the right papers in another order', [ids[1], ids[0], ids[2]] as string[]],
     ['only two stories', ids.slice(0, 2)],
   ])('rejects %s', (_, storyIds) => {
     expect(checkScript(draft(), storyIds, selection)).not.toEqual([]);
@@ -157,13 +161,20 @@ describe('buildScript', () => {
     ]);
   });
 
-  it("builds the title and show notes from the stories' HN details", () => {
-    expect(script.title).toContain('Story 1');
+  it('builds the title and show notes from the papers', () => {
+    expect(script.title).toContain('Paper 1');
+    expect(script.description).toContain('Small language model research');
     for (const story of stories) {
       expect(script.description).toContain(story.title);
-      expect(script.description).toContain(story.hnUrl);
+      expect(script.description).toContain(story.authors);
+      expect(script.description).toContain(`Status: ${story.status}`);
+      if (story.scholarUrl) expect(script.description).toContain(story.scholarUrl);
       if (story.url) expect(script.description).toContain(story.url);
     }
+  });
+
+  it('refuses a script when nothing new turned up', () => {
+    expect(checkScript(draft(), [], { ...selection, ids: [], quiet: true })).not.toEqual([]);
   });
 
   it('renders a transcript with every line and the show notes', () => {

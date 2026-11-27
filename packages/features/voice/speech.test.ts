@@ -45,7 +45,7 @@ describe('segmentSpeakers', () => {
     const [, nadia] = correspondents;
     const story: Segment = {
       kind: 'story',
-      storyId: 1,
+      storyId: 'arxiv:1',
       lines: [line(nadia.name), line(host.name), line(nadia.name)],
     };
     expect(segmentSpeakers(story)).toEqual([

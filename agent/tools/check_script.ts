@@ -6,8 +6,8 @@ import { selection } from '../lib/selection';
 export default defineTool({
   description:
     'Checks a finished script without publishing anything: the running order, who speaks where, ' +
-    'no URLs or markdown in the text, allowed cues, and that it covers exactly the stories ' +
-    'get_top_stories picked. Returns ok, or the problems to fix. Call it until it returns ok.',
+    'no URLs or markdown in the text, allowed cues, and that it covers exactly the papers ' +
+    'get_papers picked. Returns ok, or the problems to fix. Call it until it returns ok.',
   inputSchema: ScriptInputSchema,
   execute({ script, storyIds }) {
     const problems = checkScript(script, storyIds, selection.get());

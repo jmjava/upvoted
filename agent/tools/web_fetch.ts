@@ -7,8 +7,8 @@ const MAX_CHARS = 80_000;
 export default defineTool({
   ...webFetch,
   description:
-    'Fetches a web page as markdown, cut off after about 20,000 tokens. Use it for background ' +
-    "the story's own article and thread don't give, or to check a claim.",
+    'Fetches a web page as markdown, cut off after about 20,000 tokens. Use it to read a paper ' +
+    'get_paper could not, or to check a claim against a source you name.',
   async execute(input, ctx) {
     const page = await lastOutput(await webFetch.execute(input, ctx));
     const truncated = page.content.length > MAX_CHARS;

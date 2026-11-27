@@ -1,9 +1,9 @@
 import { defineAgent } from 'eve';
 
 /**
- * Upvoted's producer: picks the day's three biggest Hacker News stories, reads them, writes the
- * script and publishes the episode. What it does lives in instructions.md; its tools are thin
- * wrappers over @upvoted/features.
+ * Upvoted's producer: picks three small-language-model papers, reads them, writes the script
+ * and publishes the episode. What it does lives in instructions.md; its tools are thin wrappers
+ * over @upvoted/features.
  */
 export default defineAgent({
   // Sonnet 5.5 is the best value for this job. Medium reasoning, as Charles asked on Nov 3.

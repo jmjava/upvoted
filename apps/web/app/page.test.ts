@@ -21,11 +21,14 @@ describe('the home page', () => {
     expect(html).toContain('The latest');
     expect(html).toContain('src="https://blob.example.com/episodes/2026-11-03/episode.mp3"');
     expect(html).toContain('preload="metadata"');
-    expect(html).toContain('href="https://example.com/1"');
-    expect(html).toContain('href="https://news.ycombinator.com/item?id=1"');
-    // Story 3 is a text post: a discussion link and no article link.
-    expect(html).toContain('href="https://news.ycombinator.com/item?id=3"');
-    expect(html.match(/href="https:\/\/example\.com\//g)).toHaveLength(2);
+    expect(html).toContain('href="https://arxiv.org/abs/2511.00001"');
+    expect(html).toContain('href="https://scholar.google.com/scholar?cluster=1"');
+    expect(html).toContain('New');
+    expect(html).toContain('Standing');
+    // Paper 3 has a Scholar link and no paper page.
+    expect(html).toContain('href="https://scholar.google.com/scholar?cluster=3"');
+    expect(html).not.toContain('href="https://arxiv.org/abs/2511.00003"');
+    expect(html.match(/href="https:\/\/arxiv\.org\/abs\//g)).toHaveLength(2);
     // A single episode has no earlier section.
     expect(html.match(/<audio/g)).toHaveLength(1);
     expect(html).not.toContain('<section');
@@ -52,7 +55,9 @@ describe('the home page', () => {
     expect(titles.every((at) => at >= 0)).toBe(true);
     expect(titles).toEqual([...titles].sort((a, b) => a - b));
     expect(html).toContain('Sunday, November 1, 2026');
-    // Every episode lists its stories: one discussion link per story per episode.
-    expect(html.match(/href="https:\/\/news\.ycombinator\.com\/item\?id=1"/g)).toHaveLength(3);
+    // Every episode lists its papers: one Scholar link per paper per episode.
+    expect(html.match(/href="https:\/\/scholar\.google\.com\/scholar\?cluster=1"/g)).toHaveLength(
+      3,
+    );
   });
 });

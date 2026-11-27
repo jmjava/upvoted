@@ -12,9 +12,14 @@ const start = async (run: EpisodeRun) => {
   return `session-${started.length}`;
 };
 
-function call(url = URL, secret: string | null = 'shh', now?: Date): Promise<Response> {
+function call(
+  url = URL,
+  secret: string | null = 'shh',
+  now?: Date,
+  gate?: (run: EpisodeRun) => Promise<'go' | 'nothing new'>,
+): Promise<Response> {
   const headers = secret === null ? undefined : { authorization: `Bearer ${secret}` };
-  return handleRunRequest(new Request(url, { method: 'POST', headers }), start, now);
+  return handleRunRequest(new Request(url, { method: 'POST', headers }), start, now, gate);
 }
 
 async function publish(date: string): Promise<void> {
@@ -81,6 +86,27 @@ describe('POST /api/episode', () => {
     expect(started).toEqual([]);
   });
 
+  it('starts nothing when there is no new research', async () => {
+    const gate = vi.fn(async () => 'nothing new' as const);
+    const response = await call(`${URL}?date=2026-11-03`, 'shh', undefined, gate);
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      date: '2026-11-03',
+      force: false,
+      status: 'nothing new',
+    });
+    expect(started).toEqual([]);
+  });
+
+  it('does not ask the gate when the date is already published', async () => {
+    await publish('2026-11-01');
+    const gate = vi.fn(async () => 'go' as const);
+    await call(`${URL}?date=2026-11-01`, 'shh', undefined, gate);
+    expect(gate).not.toHaveBeenCalled();
+    expect(started).toEqual([]);
+  });
+
   it('makes a published date again with force=1', async () => {
     await publish('2026-11-01');
     const response = await call(`${URL}?date=2026-11-01&force=1`);
@@ -96,6 +122,13 @@ describe('the daily schedule', () => {
       status: 'started',
     });
     expect(started).toEqual([{ date: '2026-11-03', force: false }]);
+  });
+
+  it('starts nothing when there is no new research', async () => {
+    expect(
+      await runScheduled(start, new Date('2026-11-03T09:15:00Z'), async () => 'nothing new'),
+    ).toMatchObject({ date: '2026-11-03', status: 'nothing new' });
+    expect(started).toEqual([]);
   });
 
   it('starts nothing once the episode is published', async () => {
